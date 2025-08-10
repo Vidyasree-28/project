@@ -1,0 +1,445 @@
+ <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Memory Card Game</title>
+  <style>
+    /* -------------------------
+       Reset & base
+       ------------------------- */
+    * { box-sizing: border-box; }
+    html,body { height:100%; margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background: linear-gradient(180deg,#0f172a 0%, #071426 60%); color:#e6eef8; -webkit-font-smoothing:antialiased; }
+    a{color:inherit;}
+    .container{max-width:980px;margin:32px auto;padding:20px;}
+
+    
+    .header {
+      display:flex; gap:16px; align-items:center; justify-content:space-between;
+      margin-bottom:18px; background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border-radius:12px; padding:14px;
+      box-shadow: 0 6px 24px rgba(3,7,18,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+      backdrop-filter: blur(6px);
+    }
+    .title { display:flex; gap:12px; align-items:center; }
+    .logo {
+      width:56px; height:56px; border-radius:12px;
+      background:linear-gradient(135deg,#ff4d6d,#7b61ff,#00d2ff);
+      display:grid; place-items:center; font-weight:700; color:white; box-shadow:0 6px 20px rgba(123,97,255,0.18);
+    }
+    .title h1{ margin:0; font-size:20px; letter-spacing:0.2px; }
+    .subtitle{ margin:0; font-size:12px; color:#c5d7f3; opacity:0.85; }
+
+    .controls { display:flex; gap:10px; align-items:center; }
+    select, button {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.06);
+      color: #e6eef8; padding:8px 12px; border-radius:10px; cursor:pointer;
+      font-size:14px;
+    }
+    select:focus, button:focus { outline: none; box-shadow: 0 0 0 3px rgba(123,97,255,0.12); }
+
+   
+    .status {
+      display:flex; gap:12px; align-items:center; margin-bottom:14px; flex-wrap:wrap;
+    }
+    .stat {
+      background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.03);
+      font-weight:600; font-size:14px; color:#f0f8ff;
+    }
+    .stars { color:#ffd166; font-size:14px; letter-spacing:2px; }
+
+    /* -------------------------
+       Grid
+       ------------------------- */
+    .board {
+      display:grid;
+      gap:12px;
+      justify-items:center;
+      padding:18px;
+      border-radius:14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 12px 40px rgba(3,7,18,0.55);
+    }
+
+    /* card */
+    .card {
+      width:100%; max-width:120px; aspect-ratio: 1/1; perspective:1000px;
+    }
+    .card-inner {
+      position:relative; width:100%; height:100%;
+      transform-style: preserve-3d; transition: transform 400ms cubic-bezier(.2,.8,.2,1);
+      border-radius:12px;
+    }
+    .card.is-flipped .card-inner { transform: rotateY(180deg); }
+    .card-face {
+      position:absolute; inset:0; display:grid; place-items:center; backface-visibility:hidden; border-radius:12px;
+    }
+    .card-front {
+      background: linear-gradient(135deg,#0b1220,#071026); border:1px solid rgba(255,255,255,0.03);
+      box-shadow: inset 0 -6px 18px rgba(0,0,0,0.45);
+      font-size:44px;
+    }
+    .card-back {
+      transform: rotateY(180deg);
+      background: linear-gradient(135deg,#7b61ff,#00d2ff);
+      color:#021025; font-size:42px;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow: 0 8px 18px rgba(123,97,255,0.14);
+    }
+    .card.matched .card-inner { transform: none !important; opacity:0.92; filter:grayscale(0.02) saturate(1.08); }
+    .card.matched .card-back { transform: rotateY(0deg); }
+
+    /* responsiveness of grid columns */
+    .board.cols-4 { grid-template-columns: repeat(4, 1fr); }
+    .board.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .board.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .board.cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+    /* footer modal */
+    .footer {
+      margin-top:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+      color:#c8daf4; font-size:13px;
+    }
+
+    /* small screens */
+    @media (max-width:640px){
+      .board.cols-4 { grid-template-columns: repeat(2,1fr); }
+      .logo{width:48px;height:48px}
+      .card{max-width:110px}
+    }
+
+    /* win modal */
+    .modal {
+      position:fixed; inset:0; display:none; place-items:center; background: linear-gradient(180deg, rgba(2,6,23,0.6), rgba(2,6,23,0.85));
+      z-index:50;
+    }
+    .modal.show { display:grid; }
+    .modal-card{
+      background: linear-gradient(135deg,#0b1220,#071026); padding:22px; border-radius:12px; width:min(520px,92%); text-align:center; color:#eaf6ff;
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 24px 80px rgba(3,7,18,0.7);
+    }
+    .modal-card h2{margin:0 0 6px 0}
+    .modal-card p{margin:6px 0 12px 0; color:#c6ddf6}
+    .modal-card button{margin:6px;}
+    
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <div class="header">
+      <div class="title">
+        <div class="logo">G</div>
+        <div>
+          <h1>Memory Card Game</h1>
+          <p class="subtitle">A colorful memory matching game</p>
+        </div>
+      </div>
+
+      <div class="controls" aria-hidden="false">
+        <label for="difficulty" style="font-size:13px;color:#e4ebeb;opacity:0.9;">Difficulty</label>
+        <select id="difficulty" title="Choose difficulty">
+          <option value="easy">Easy (4 pairs)</option>
+          <option value="medium" selected>Medium (6 pairs)</option>
+          <option value="hard">Hard (8 pairs)</option>
+        </select>
+
+        <button id="restartBtn" title="Restart game">Restart</button>
+      </div>
+    </div>
+
+    <div class="status">
+      <div class="stat">Moves: <span id="moves">0</span></div>
+      <div class="stat">Time: <span id="timer">00:00</span></div>
+      <div class="stat">Stars: <span id="stars" class="stars">★★★</span></div>
+      <div class="stat">Best: <span id="best">—</span></div>
+    </div>
+
+    <div id="board" class="board cols-4" aria-live="polite"></div>
+
+    <div class="footer">
+      <div>Tip: Click a card to flip. Match all pairs to win.</div>
+      
+    </div>
+  </div>
+
+  <!-- Win Modal -->
+  <div id="winModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-card" role="document">
+      <h2>🎉 You won!</h2>
+      <p id="winSummary">Great job — you matched all the cards.</p>
+      <div>
+        <button id="playAgain">Play Again</button>
+        <button id="closeModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  /*************************************************************************
+   * Memory Card Game
+   * - Single-file implementation
+   * - Shuffle, timer, moves, stars, best-time persistence
+   * - Difficulty toggle: easy(4 pairs), medium(6 pairs), hard(8 pairs)
+   *************************************************************************/
+
+  // UI elements
+  const boardEl = document.getElementById('board');
+  const movesEl = document.getElementById('moves');
+  const timerEl = document.getElementById('timer');
+  const starsEl = document.getElementById('stars');
+  const bestEl = document.getElementById('best');
+  const difficultySelect = document.getElementById('difficulty');
+  const restartBtn = document.getElementById('restartBtn');
+  const winModal = document.getElementById('winModal');
+  const winSummary = document.getElementById('winSummary');
+  const playAgainBtn = document.getElementById('playAgain');
+  const closeModalBtn = document.getElementById('closeModal');
+
+  // Emoji pool — pairs will be taken from here
+  const EMOJIS = ['🐶','🐱','🦊','🐼','🦁','🐸','🐵','🐷','🦄','🐙','🐝','🐢','🐨','🦖','🐬','🦋','🌸','🍕','⚽️','🚀'];
+  // Game state
+  let deck = [];              // array of card objects {id, emoji}
+  let firstCard = null;
+  let secondCard = null;
+  let lockBoard = false;
+  let matchedPairs = 0;
+  let totalPairs = 6;         // default (medium)
+  let moves = 0;
+  let timer = null;
+  let secondsElapsed = 0;
+  let started = false;
+
+  // LocalStorage key for best times (keeps best per difficulty)
+  const STORAGE_KEY = 'memoryGameBestTimes';
+
+  // Initialize
+  function init() {
+    // load best times display
+    renderBestTime();
+    // Setup listeners
+    difficultySelect.addEventListener('change', onDifficultyChange);
+    restartBtn.addEventListener('click', resetGame);
+    playAgainBtn.addEventListener('click', () => { resetGame(); hideModal(); });
+    closeModalBtn.addEventListener('click', hideModal);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideModal();
+    });
+
+    // start first game
+    setupGame();
+  }
+
+  function onDifficultyChange() {
+    const val = difficultySelect.value;
+    if (val === 'easy') totalPairs = 4;
+    else if (val === 'medium') totalPairs = 6;
+    else totalPairs = 8;
+    setupGame();
+  }
+
+  function setupGame() {
+    // reset variables
+    clearInterval(timer);
+    secondsElapsed = 0;
+    started = false;
+    moves = 0;
+    matchedPairs = 0;
+    firstCard = null; secondCard = null; lockBoard = false;
+    movesEl.textContent = moves;
+    timerEl.textContent = formatTime(secondsElapsed);
+    starsEl.textContent = '★★★';
+    // generate deck
+    deck = generateDeck(totalPairs);
+    // choose grid columns based on total cards
+    const totalCards = deck.length;
+    if (totalCards <= 8) boardEl.className = 'board cols-4';
+    else if (totalCards <= 12) boardEl.className = 'board cols-4';
+    else boardEl.className = 'board cols-4';
+    // render
+    renderDeck(deck);
+  }
+
+  // generate deck with pairs and shuffle
+  function generateDeck(pairs) {
+    const chosen = EMOJIS.slice(0); // shallow copy
+    shuffleArray(chosen);
+    const selected = chosen.slice(0, pairs);
+    const pairCards = selected.flatMap((emoji, i) => ([
+      { id: `${i}-a`, emoji }, { id: `${i}-b`, emoji }
+    ]));
+    shuffleArray(pairCards);
+    return pairCards;
+  }
+
+  // render deck into DOM
+  function renderDeck(cards) {
+    boardEl.innerHTML = '';
+    cards.forEach(card => {
+      const cardEl = document.createElement('div');
+      cardEl.className = 'card';
+      cardEl.dataset.id = card.id;
+      cardEl.dataset.emoji = card.emoji;
+
+      cardEl.innerHTML = `
+        <div class="card-inner">
+          <div class="card-face card-front" aria-hidden="false">?</div>
+          <div class="card-face card-back" aria-hidden="true">${card.emoji}</div>
+        </div>
+      `;
+      cardEl.addEventListener('click', onCardClick);
+      boardEl.appendChild(cardEl);
+    });
+  }
+
+  // card click handler
+  function onCardClick(e) {
+    const el = e.currentTarget;
+    if (lockBoard) return;
+    if (el.classList.contains('matched')) return;
+    if (el === firstCard) return;
+
+    // start timer upon first meaningful click
+    if (!started) { startTimer(); started = true; }
+
+    flipCard(el);
+
+    if (!firstCard) {
+      firstCard = el;
+      return;
+    }
+    secondCard = el;
+    moves++;
+    movesEl.textContent = moves;
+
+    // check for match
+    if (firstCard.dataset.emoji === secondCard.dataset.emoji) {
+      // matched
+      firstCard.classList.add('matched');
+      secondCard.classList.add('matched');
+      matchedPairs++;
+      resetTurn(true);
+      // check win
+      if (matchedPairs === totalPairs) {
+        winGame();
+      }
+    } else {
+      // not matched
+      lockBoard = true;
+      setTimeout(() => {
+        unflipCard(firstCard);
+        unflipCard(secondCard);
+        resetTurn(false);
+      }, 900);
+    }
+    updateStars(); // update star rating by moves/time
+  }
+
+  function flipCard(cardEl) {
+    cardEl.classList.add('is-flipped');
+    const inner = cardEl.querySelector('.card-inner');
+    inner.style.transform = 'rotateY(180deg)';
+  }
+  function unflipCard(cardEl) {
+    cardEl.classList.remove('is-flipped');
+    const inner = cardEl.querySelector('.card-inner');
+    inner.style.transform = '';
+  }
+
+  function resetTurn(matched) {
+    [firstCard, secondCard] = [null, null];
+    lockBoard = false;
+  }
+
+  // start and update timer
+  function startTimer() {
+    clearInterval(timer);
+    timer = setInterval(() => {
+      secondsElapsed++;
+      timerEl.textContent = formatTime(secondsElapsed);
+    }, 1000);
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2,'0');
+    const s = (sec % 60).toString().padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  function updateStars() {
+    // simple rule: more moves or time -> lose stars
+    if (moves <= totalPairs * 2 && secondsElapsed < totalPairs * 20) starsEl.textContent = '★★★';
+    else if (moves <= totalPairs * 3 || secondsElapsed < totalPairs * 40) starsEl.textContent = '★★☆';
+    else starsEl.textContent = '★☆☆';
+  }
+
+  function winGame() {
+    clearInterval(timer);
+    // show win modal with summary
+    const timeStr = formatTime(secondsElapsed);
+    winSummary.innerHTML = `You finished in <strong>${timeStr}</strong> with <strong>${moves}</strong> moves and <strong>${starsEl.textContent}</strong> stars.`;
+    showModal();
+    // save best time to localStorage per difficulty
+    saveBestTime(secondsElapsed);
+    renderBestTime();
+  }
+
+  function showModal() {
+    winModal.classList.add('show');
+    winModal.setAttribute('aria-hidden','false');
+  }
+  function hideModal() {
+    winModal.classList.remove('show');
+    winModal.setAttribute('aria-hidden','true');
+  }
+
+  function resetGame() {
+    clearInterval(timer);
+    secondsElapsed = 0;
+    started = false;
+    moves = 0;
+    matchedPairs = 0;
+    firstCard = null; secondCard = null; lockBoard = false;
+    movesEl.textContent = moves;
+    timerEl.textContent = formatTime(secondsElapsed);
+    starsEl.textContent = '★★★';
+    // regenerate deck
+    deck = generateDeck(totalPairs);
+    renderDeck(deck);
+  }
+
+  // localStorage helpers: store best times as { easy: secs, medium: secs, hard: secs }
+  function saveBestTime(sec) {
+    const key = difficultySelect.value;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const bests = raw ? JSON.parse(raw) : {};
+    if (!bests[key] || sec < bests[key]) {
+      bests[key] = sec;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(bests));
+    }
+  }
+  function renderBestTime() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { bestEl.textContent = '—'; return; }
+    const bests = JSON.parse(raw);
+    const key = difficultySelect.value;
+    if (bests[key]) bestEl.textContent = formatTime(bests[key]);
+    else bestEl.textContent = '—';
+  }
+
+  // Utility: Fisher-Yates shuffle
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+
+  // init when DOM ready
+  document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
